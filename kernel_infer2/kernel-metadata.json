@@ -1,0 +1,13 @@
+{
+  "id": "dulgherustefan/rogii-stacker-infer-fast",
+  "title": "ROGII Stacker Infer Fast",
+  "code_file": "rogii_infer.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_internet": false,
+  "competition_sources": ["rogii-wellbore-geology-prediction"],
+  "dataset_sources": ["dulgherustefan/rogii-gbm-stacker-model"],
+  "kernel_sources": []
+}

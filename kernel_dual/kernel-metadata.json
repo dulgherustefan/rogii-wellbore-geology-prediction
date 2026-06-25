@@ -1,0 +1,13 @@
+{
+  "id": "dulgherustefan/rogii-dual-pipeline-gold",
+  "title": "ROGII Dual Pipeline Gold",
+  "code_file": "rogii_dual.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": false,
+  "competition_sources": ["rogii-wellbore-geology-prediction"],
+  "dataset_sources": [],
+  "kernel_sources": []
+}
