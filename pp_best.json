@@ -1,0 +1,10 @@
+{
+ "alpha": 1.0,
+ "tau": 150.0,
+ "w_pf": 0.0,
+ "w_sub1": 0.75,
+ "lp_key": "likpf_scale_3",
+ "w_surf": 0.05,
+ "sg_win": 801,
+ "trend_deg": 0
+}
