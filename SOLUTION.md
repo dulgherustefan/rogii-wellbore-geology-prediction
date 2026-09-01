@@ -1,4 +1,4 @@
-# ROGII Wellbore Geology Prediction — Solution log
+# ROGII Wellbore Geology Prediction: Solution log
 
 Target: predict `tvt` (true vertical thickness = stratigraphic position of the bit)
 for the evaluation zone of each horizontal well. Metric: RMSE (one-foot steps).
@@ -9,13 +9,13 @@ for the evaluation zone of each horizontal well. Metric: RMSE (one-foot steps).
   - `Z` = bit true vertical depth (elevation, negative). Known everywhere incl. test.
   - `ANCC…BUDA` = elevations of 6 stratigraphic markers at the bit (TRAIN only). Parallel surfaces (all std≈identical, move in lockstep).
   - `GR` = gamma ray (~43% missing). `TVT_input` = true TVT up to the Prediction-Start (PS) point, NaN after.
-- `*__typewell.csv`: `TVT,GR` (+`Geology` in train) — reference log GR vs stratigraphic depth.
+- `*__typewell.csv`: `TVT,GR` (+`Geology` in train), reference log GR vs stratigraphic depth.
 - **Eval zone = exactly the rows where `TVT_input` is NaN** (the toe, ~67–80% of the lateral). `TVT_input==TVT` on the known part.
 
 ## Key data insights
 1. **TVT is per-well**: each well's TVT is referenced to its own typewell datum. TVT=11745 in well A ≠ same stratum as in well B (offsets of 100s of ft). → cross-well raw-TVT transfer fails.
 2. **TVT is steered to stay in zone**: in the eval zone TVT is *mean-reverting*, not trending. Holding the last value (`const`) is a strong baseline; linear/dip extrapolation overshoots badly.
-3. **TVT is very smooth** (|dTVT|/step ≈ 0.01 ft) but makes large smooth excursions (±10–50 ft) — low-frequency undulations that `const` misses.
+3. **TVT is very smooth** (|dTVT|/step ≈ 0.01 ft) but makes large smooth excursions (±10–50 ft), low-frequency undulations that `const` misses.
 4. **Wells are densely clustered spatially** (median nearest-well 470 ft; 702/773 have a neighbour <1500 ft) BUT laterals do not physically intersect in 3D (>200 ft apart), so 3D-KNN on TVT fails.
 5. **GR is informative but ambiguous**: corr(GR_obs, typewell GR @ true TVT) ≈ 0.55–0.82. Non-monotonic GR ⇒ point matching is multi-valued. GR only localises *while TVT is moving*; when the bit sits still GR is flat/uninformative.
 6. **Exact structural identity**: `TVT = b_well + E_formation(X,Y) − Z` reproduces TVT to **RMSE 0.01** using the well's own markers (`b_well = median(TVT+Z−E)` per well). The whole problem ≈ predicting the formation-surface elevation E(X,Y) at the bit.
@@ -28,19 +28,19 @@ Top=5.35, **Top 10=6.53**, top5%=7.21, **dense public wall ~7.2–7.6** (a copie
 | Approach | Pooled RMSE | Verdict |
 |---|---|---|
 | const (hold last TVT) | ~12–16 | strong baseline (TVT mean-reverts) |
-| linear / dip extrapolation of TVT or S=TVT+Z | 40–190 | fails — TVT does not trend |
-| GR point-match to typewell | ~26 | fails — ambiguous |
+| linear / dip extrapolation of TVT or S=TVT+Z | 40–190 | fails, TVT does not trend |
+| GR point-match to typewell | ~26 | fails, ambiguous |
 | GR DP (velocity penalty) | ≈const | over-regularised → const; under → noise |
 | **GR DP with curvature penalty (v4)** | ~17.8 (≈const) | captures smooth drift on strong-GR wells (e.g. 13.2→7.1) but wrong-direction failures cancel gains |
 | windowed NCC localisation | worse than const | GR flat where TVT steady → no signature |
-| 3D-KNN / offset-KNN on TVT | 90–320 | fails — per-well datum, no 3D overlap |
+| 3D-KNN / offset-KNN on TVT | 90–320 | fails, per-well datum, no 3D overlap |
 | neighbour formation surface (struct) | exact (0.01) w/ own markers; ~2.7 on simple wells | unreliable across faults (known-residual median ~120 ft) |
 | **Particle filter (S=TVT+Z, GR likelihood, seed ensemble)** | **~9.7–12.4 (−20–25% vs const)** | **best single method**; diverges (wrong GR direction) on a minority of wells |
 | confidence blend PF+struct+const | ≈PF | struct too unreliable to add weight |
 
 ## Final submissions today
-- **PF ensemble + clip(±50) + shrink(0.6)** — robust, ~22% better than const on backtest. (`kernel/rogii_pf.py`)
-- **const baseline** — safety net + exact LB calibration. (`kernel_const/`)
+- **PF ensemble + clip(±50) + shrink(0.6)**, robust, ~22% better than const on backtest. (`kernel/rogii_pf.py`)
+- **const baseline**, safety net + exact LB calibration. (`kernel_const/`)
 Kaggle keeps the best of the two.
 
 ## Why PF works (physical meaning)
@@ -66,15 +66,15 @@ stochastic divergence; remaining wrong-direction failures are the open weakness.
    **LightGBM + CatBoost**, GroupKFold by well, Ridge blender. This is the step that
    takes the ~9–10 single-method score down to ~7 and below.
 
-## GBM stacker (the much-better solution) — validated OOF
+## GBM stacker (the much-better solution): validated OOF
 Combine complementary base signals with LightGBM (GroupKFold by well), target TVT-anchor:
 - `pf`  : typewell-GR particle filter ensemble (RMSE 13.7)
-- `pf2` : particle filter vs the well's OWN pre-PS GR(TVT) template (slide 9) — weaker
+- `pf2` : particle filter vs the well's OWN pre-PS GR(TVT) template (slide 9), weaker
   alone but diverse; avg(pf,pf2) < either
 - `st`  : neighbour formation surface (RMSE 17 overall, ~5 where geology continuous)
 - confidences: PF pseudo-CV, struct known-residual, **formation dispersion (fault proxy)**,
   neighbour coverage; + GR/trajectory features.
-Top features by importance: pf_cv, st_disp, st_kres, Z_dev, cov — i.e. the model mostly
+Top features by importance: pf_cv, st_disp, st_kres, Z_dev, cov, i.e. the model mostly
 learns *which signal to trust where*. Failure modes of PF (GR direction) and struct
 (faults) are different, so the blend beats all singles.
 
@@ -85,17 +85,17 @@ learns *which signal to trust where*. Failure modes of PF (GR direction) and str
 | struct | 17.03 |
 | **GBM stacker (pf+pf2+st+conf)** | **10.62** |
 
-Kernel: `kernel_stack/rogii_stacker.py` — self-contained, regenerates train features,
+Kernel: `kernel_stack/rogii_stacker.py`, self-contained, regenerates train features,
 trains LightGBM (2 seeds), predicts test. **CONFIRMED public LB = 10.147** (OOF 10.62
 well-calibrated; LB runs ~0.47 better than OOF).
 
-## v3 — NCC slide-9 signal + LightGBM/CatBoost blend (2026-06-25)
+## v3: NCC slide-9 signal + LightGBM/CatBoost blend (2026-06-25)
 Two clean wins over the 10.62 stacker, both validated on the same GroupKFold(5) OOF:
 1. **Slide-9 NCC as GBM features** (`featgen3.py`): correlate horizontal-GR windows
    (the high-res log) against the well's OWN known-zone GR(TVT) template, restricted to
    ±45 ft of the anchor (continuity prior). Added as *features* (estimate + confidence at
    window half-widths 8/15/25 + consensus + disagreement-vs-PF), NOT as a standalone
-   predictor — the GBM downweights it where the GR alignment is unreliable. This is the
+   predictor, the GBM downweights it where the GR alignment is unreliable. This is the
    fix for the earlier "NCC negative corr" failure: it failed as a hard predictor, works
    as a soft feature.
 2. **CatBoost alongside LightGBM**, blended. Different inductive bias → diverse errors.
@@ -108,48 +108,48 @@ Two clean wins over the 10.62 stacker, both validated on the same GroupKFold(5) 
 | **blend 0.48·LGBM + 0.52·CatBoost (both +NCC)** | **10.421** |
 
 NOTE: hand-engineered interaction/consensus features (ratios, trust-weighted blends)
-were tried and HURT (LGBM 10.79 vs 10.62) — trees already find those splits; explicit
+were tried and HURT (LGBM 10.79 vs 10.62), trees already find those splits; explicit
 ratios just add noise. Dropped. Real signal came only from a genuinely new information
 source (NCC) + a second algorithm (CatBoost).
 Final bundle: 3 LGBM + 2 CatBoost seeds (`train_final.py`), inference kernel
 `kernel_infer3/` (NCC features computed in-kernel for test wells, loky n_jobs=4).
 
-### ⚠️ v3 RESULT: better OOF, WORSE LB — the OOF stopped being a valid proxy
+### ⚠️ v3 RESULT: better OOF, WORSE LB: the OOF stopped being a valid proxy
 | submission | OOF (train GroupKFold) | public LB |
 |---|---|---|
 | v2 stacker (LGBM, base feats) | 10.62 | **10.147** |
 | v3 (LGBM+CatBoost + NCC, blend) | 10.42 (−0.20) | **10.311** (+0.16 WORSE) |
 
 The added capacity (NCC GR-template features + CatBoost) **lowered OOF but raised real LB**.
-The GroupKFold-over-train-wells OOF — which had been well-calibrated for the simple models
-(const, PF, base LGBM all matched LB within ~0.5) — is **no longer a reliable LB proxy once
+The GroupKFold-over-train-wells OOF, which had been well-calibrated for the simple models
+(const, PF, base LGBM all matched LB within ~0.5), is **no longer a reliable LB proxy once
 you add capacity**: it rewards fitting train-well idiosyncrasies the hidden test doesn't share.
 Crucially, the 3 local "test" wells are *reused train wells*, so no local check could have
-caught this — only the LB did. **Lesson: best LB stays 10.147 (the simplest model). Before
+caught this, only the LB did. **Lesson: best LB stays 10.147 (the simplest model). Before
 trusting any OOF gain, need a hold-out that mimics the test distribution (e.g. spatial/region
 block CV, or holding out whole well-clusters), not random well folds.** Kaggle keeps the BEST
-submission, so an experimental regression doesn't hurt ranking — only spends a daily slot.
+submission, so an experimental regression doesn't hurt ranking, only spends a daily slot.
 
 ### v5 (2026-06-25 #2): isolate the robust signal
 Rather than submit v4 (=v3+pf3, same overfit-prone architecture), #2 = **LGBM on base+pf3
 only** (drop NCC + CatBoost). pf3 = a 2nd, more-responsive particle filter (MOM 0.99, VN .006,
-PN .012) — a physically-grounded signal, less likely to be train-specific than GR-template
+PN .012), a physically-grounded signal, less likely to be train-specific than GR-template
 matching. This is the minimal, most-robust-direction change from the 10.147 winner, and a
 clean test of whether ANY of the new signals transfer to the hidden test. Kernel `kernel_infer5/`.
 
-**v5 RESULT: LB 10.130 — NEW BEST** (beats v2's 10.147, and far better than v3's 10.311).
+**v5 RESULT: LB 10.130, NEW BEST** (beats v2's 10.147, and far better than v3's 10.311).
 Confirms the hypothesis cleanly:
 | signal added to base LGBM | LB | transfers? |
 |---|---|---|
-| NCC GR-template + CatBoost (v3) | 10.311 | NO — overfits train wells |
-| pf3 (2nd, responsive particle filter) (v5) | **10.130** | YES — physical signal generalises |
+| NCC GR-template + CatBoost (v3) | 10.311 | NO, overfits train wells |
+| pf3 (2nd, responsive particle filter) (v5) | **10.130** | YES, physical signal generalises |
 So PF *diversity* is the robust lever; GR-template matching and a 2nd GBM algo are not.
 Progress: const 15.88 → PF 12.30 → stacker(v2) 10.147 → **base+pf3 (v5) 10.130**.
 Takeaway for top-10: keep adding *physically-grounded, diverse* base predictors (more PF
 scales/configs, dip-constrained PF), NOT more model capacity or train-specific template
 features. And build a test-like hold-out before trusting OOF.
 
-## v6 — the public 7.2 wall is LARGELY LEAKAGE; adopt the honest dual pipeline (2026-06-25 #3)
+## v6: the public 7.2 wall is LARGELY LEAKAGE; adopt the honest dual pipeline (2026-06-25 #3)
 Mined the top public notebooks (`public_nb/`). The strong ones (degnonguidi **7.159**,
 baidalinadilzhan 7.201, romantamrazov) all ship a **"GOLD overlay"** = a visible-prefix
 calibration that **exploits train/test well overlap**. The 3 public test wells are *reused
@@ -163,7 +163,7 @@ Decision (user wanted the better score): tried overlay ON → it is **far too sl
 `run_pf_lik_ensemble_scales` per cut×seed) → certain Kaggle **timeout** on the full hidden
 test, which would waste the single submission. The **honest** dual pipeline (overlay OFF)
 already scores ~7.159 ("the honest number is the one that matters"), runs reliably, is durable
-on private, and is a huge jump from 10.13 — so submit that.
+on private, and is a huge jump from 10.13, so submit that.
 
 The degnonguidi pipeline (now the base going forward):
 - **Pipeline A**: FormationPlaneKNN (weighted local *plane* fit per formation, better than my
@@ -178,12 +178,12 @@ per-formation b_well (median/WLS/last-50), **GR-offset features** (sample typewe
 around each base estimate → the GBM sees the local GR signature), inter-signal consensus/std.
 
 Note: romantamrazov's "top-3" notebook is weaker (honest OOF ~10.7) and had 2 bugs on the current
-Kaggle image — CatBoost `subsample` needs `bootstrap_type="Bernoulli"`; `devices="0:1"` fails on the
+Kaggle image, CatBoost `subsample` needs `bootstrap_type="Bernoulli"`; `devices="0:1"` fails on the
 single-GPU P100 (`"0"`). degnonguidi's auto-detect avoids both.
 
-## v7 — plane-fit structural surface ported into my fast pipeline (2026-06-26)
+## v7: plane-fit structural surface ported into my fast pipeline (2026-06-26)
 The full dual pipeline TRAINS FROM SCRATCH on Kaggle (no pre-trained artifacts attached) and
-**exceeds the GPU time limit** — the "gold" kernel ran ~8h → CANCEL_ACKNOWLEDGED; reduced "fast"/
+**exceeds the GPU time limit**, the "gold" kernel ran ~8h → CANCEL_ACKNOWLEDGED; reduced "fast"/
 "lean" variants ran 10h+ without finishing. So I extracted its single best *cheap* idea into my own
 reliable offline pipeline instead of fighting timeouts:
 - **`struct_E_plane`**: local weighted PLANE fit `E ~ aX+bY+c` per formation, over a per-well
@@ -191,7 +191,7 @@ reliable offline pipeline instead of fighting timeouts:
   the same-well lateral collinearity that made earlier plane fits explode (stp_dev 294, kres 121 →
   fixed to sane kres 15-23). Its known-zone RMSE is consistently **below** my IDW struct (15-23 vs
   24-46) → a genuinely better surface, and that's a *reliable* indicator (own-data, no test shift).
-- **GR-offset features**: `gr - typewell_GR(anchor ± {8,20})` — lets the GBM read the local GR
+- **GR-offset features**: `gr - typewell_GR(anchor ± {8,20})`, lets the GBM read the local GR
   signature around the held level (the trick the public pipelines use heavily).
 
 GroupKFold OOF: v5 (base+pf3) 10.470 → **v6 (+plane+offsets) 10.149** (−0.32, the biggest single
@@ -212,7 +212,7 @@ eval rows (matches the metric). High between-well variance ⇒ use ≥80 wells p
 
 ---
 
-# 2026-08-03 — the projection layer, and where the ceiling actually is
+# 2026-08-03: the projection layer, and where the ceiling actually is
 
 **Team note:** we are three accounts on one leaderboard entry
 (`circiumaru, dulgherustefan, radugoga`) and the daily submission quota is
@@ -233,13 +233,13 @@ minus the wellbore's own vertical motion. That is why our shipped
 the same amount of smoothing applied in `U` gives **9.1921 -> 9.0121**.
 
 The anchor level cancels exactly (shifting it moves the polynomial's constant
-term by the same amount), so the layer needs only `z` and `md_since` — both
+term by the same amount), so the layer needs only `z` and `md_since`, both
 already columns in `test_df_B`. No retrain: inference-only, ~6 min kernel run.
 
 Confirmed on the leaderboard: **8.407 -> 8.259**, CV -0.180 -> LB -0.148 = 82%
 transfer. Implemented as `project_level()` in `kernel_inferB7/full.py`.
 
-Fully exploited — every variant measured worse: adaptive degree by well length
+Fully exploited, every variant measured worse: adaptive degree by well length
 (9.022), iterating twice (9.034) or three times (9.044), re-blending with the PF
 between projections (9.126). `deg=4, lam=0.75` is the optimum.
 
@@ -257,19 +257,19 @@ coefficients of U(s) per well.** The polynomial family is nowhere near the limit
 
 Decomposed in a per-well orthonormal basis, our coefficient errors contribute
 6.56 / 4.61 / 2.99 / 1.84 / 0.77 (55.8 / 27.5 / 11.6 / 4.4 / 0.8 % of variance),
-and the optimal linear rescale of every single component is **1.000** — the
+and the optimal linear rescale of every single component is **1.000**, the
 estimates are unbiased and the residual is pure noise. There is no post-hoc
 shrinkage left to extract; further gain needs better information.
 
-## Measured dead ends — do not re-run these
+## Measured dead ends: do not re-run these
 
 | attempt | result |
 |---|---|
-| SP45 selector leg (routed PF scale + beam + hold-shrink) | 9.158 vs our 9.136 — worse. Beam alone 10.40. |
+| SP45 selector leg (routed PF scale + beam + hold-shrink) | 9.158 vs our 9.136, worse. Beam alone 10.40. |
 | Formation-column structural surface | exact on train (0.0070) but **absent from test wells**; LOWO helps only <300 ft |
-| Prefix dip extrapolation | rho(prefix, true) = **0.93** yet RMSE 39.5 vs const 15.8 — the 4000 ft lever arm |
+| Prefix dip extrapolation | rho(prefix, true) = **0.93** yet RMSE 39.5 vs const 15.8, the 4000 ft lever arm |
 | Visible-prefix bias correction | rho = +0.17 vs final level; best shrink buys ~0.06 |
-| Coefficient-space posterior (`cpf.py`) | 21.6 vs PF leg 12.45 — GR likelihood is flat over +/-30 ft, cannot pin sd-176 ft coefficients |
+| Coefficient-space posterior (`cpf.py`) | 21.6 vs PF leg 12.45, GR likelihood is flat over +/-30 ft, cannot pin sd-176 ft coefficients |
 | Level/shape source recombination | the blend already has the best level AND best shape |
 | `w_learned` 0.60 -> 0.70 | CV 9.136, but same direction as the `tune_pp2` change that cost +0.208 on LB |
 
@@ -284,7 +284,7 @@ shrinkage left to extract; further gain needs better information.
 
 ---
 
-# 2026-08-04 — 8.407 → 7.932 in one session
+# 2026-08-04: 8.407 → 7.932 in one session
 
 Score path: 8.407 → **8.259** (iter7) → **8.134** (iter10) → **7.932** (iter11).
 
@@ -303,15 +303,15 @@ Confirmed on 773 wells split into two disjoint halves, and on the leaderboard.
 
 ## The three shipped changes
 
-1. **iter7 — smooth in `U = TVT + Z`, not in `TVT`.** `U` is the geological
+1. **iter7:** smooth in `U = TVT + Z`, not in `TVT`. `U` is the geological
    surface and is genuinely smooth; `TVT` is `U` minus the wellbore's own vertical
    motion. Our shipped `savgol(61,3)` on `TVT` was measured to be a **no-op**
    (9.1939 → 9.1921); a robust deg-4 polynomial in `U` gives 9.0121. The anchor
    level cancels exactly, so it needs only `z` and `md_since`. Inference-only.
-2. **iter10 — conservative GR-sigma for the leg** (`gs=45`, from 32 of the same
+2. **iter10:** conservative GR-sigma for the leg (`gs=45`, from 32 of the same
    96 PF seeds; the feature-producing seeds keep the shipped `gs` so
    `likpf_mean_d` still matches training). Cost-neutral by construction.
-3. **iter11 — retrain with the leg as a feature + `w_sub1` 0.60 → 0.65.**
+3. **iter11:** retrain with the leg as a feature + `w_sub1` 0.60 → 0.65.
    Ridge OOF 9.2877 → 8.6861.
 
 ## Two calibration lessons that cost the most
@@ -334,7 +334,7 @@ Confirmed on 773 wells split into two disjoint halves, and on the leaderboard.
   computes `gs` from **raw** GR with `NaN→0`; I used interpolated GR. A parameter
   showing *exactly* 0.0000 effect is a red flag that the code path is dead.
 * **Runtime is a hard constraint.** iter9 (PF seeds 96→192) came back COMPLETE
-  with an empty score — its rerun timed out. The kernel processes ~200 hidden
+  with an empty score, its rerun timed out. The kernel processes ~200 hidden
   wells vs 3 visible, so wall-clock scales ~66×: iter7 ≈ 6.6 h against a ~9 h
   limit. **Never increase total PF cost.**
 * **Validate on a disjoint well slice, not the tuning slice.** The first iter10
