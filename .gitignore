@@ -1,0 +1,42 @@
+# competition data (not ours to redistribute, also huge)
+data/
+*.zip
+
+# model dumps / features / oof caches -- all regenerable from the scripts, all huge
+*.pkl
+*.npy
+*.pt
+*.cbm
+catboost_info/
+
+# kaggle dataset upload staging (binaries)
+ds_stack*/
+models_A/
+models_B/
+models_B*/
+modelB_ds*/
+model_ds/
+
+# misc run output / scratch
+__pycache__/
+*.pyc
+*.out
+fast_out/
+inf_out/
+pf_out/
+lb_tmp/
+stk_out/
+nb2/
+public_nb/
+
+# large prediction dumps (not source, not needed to reproduce)
+submission*.csv
+sp45_projection_submission.csv
+pfgate.csv
+vpcal.csv
+
+# broken symlinks into the session scratchpad
+feats_B.json
+train_df_B.pkl
+
+.DS_Store
